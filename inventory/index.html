@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inventory UI</title>
+
+<style>
+body{
+    margin:0;
+    background:#1e1e1e;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family:Arial, sans-serif;
+}
+
+.inventory-wrapper{
+    display:flex;
+    gap:40px;
+    transition: all 0.3s ease; /* Smooth transition when panel opens */
+}
+
+/* PANELS */
+.panel{
+    background:#dcdcdc;
+    padding:25px;
+    border:3px solid #000;
+    border-radius:8px;
+    position:relative;
+}
+
+/* WEIGHT LABEL */
+.weight-label{
+    position:absolute;
+    top:-18px;
+    left:20px;
+    background:#f5f5f5;
+    border:2px solid #000;
+    padding:4px 14px;
+    border-radius:12px;
+    font-weight:bold;
+    font-size:14px;
+}
+
+/* HEADER LABEL (For External Inv Name) */
+.header-label {
+    position: absolute;
+    top: -18px;
+    right: 20px;
+    background: #333;
+    color: #fff;
+    border: 2px solid #000;
+    padding: 4px 14px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
+}
+
+/* SLOT */
+.slot{
+    width:65px;
+    height:65px;
+    border:3px solid #000;
+    border-radius:10px;
+    background:#fff;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+    text-align: center;
+    user-select: none;
+}
+
+.slot.empty::after{
+    content:"";
+    position:absolute;
+    inset:6px;
+    border:2px dashed #000;
+    border-radius:8px;
+    pointer-events: none;
+}
+
+.plus{
+    font-size:28px;
+    font-weight:bold;
+}
+
+/* GRID SYSTEMS */
+.grid-5{
+    display:grid;
+    grid-template-columns: repeat(5, 65px);
+    gap:14px;
+}
+
+/* New Grid for Crates/Vehicles (8 columns) */
+.grid-8{
+    display:grid;
+    grid-template-columns: repeat(8, 65px);
+    gap:14px;
+}
+
+.right-layout{
+    display:flex;
+    gap:18px;
+}
+
+.equipment{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+}
+
+.bag-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 65px);
+    gap:14px;
+}
+
+.weapons{
+    margin-top:25px;
+    display:flex;
+    justify-content:space-between;
+}
+
+.weapon-slot{
+    width:80px;
+    height:55px;
+    border:3px solid #000;
+    border-radius:8px;
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.weapon-slot img{
+    max-width:90%;
+    max-height:90%;
+}
+
+.slot img{
+    max-width:70%;
+    max-height:70%;
+    object-fit:contain;
+}
+
+.no-bag{
+    width:215px;
+    height:250px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    font-size:20px;
+    font-weight:bold;
+}
+
+/* MENUS & MODALS */
+#contextMenu {
+    display: none;
+    position: absolute;
+    z-index: 1000;
+    background: #fff;
+    border: 3px solid #000;
+    border-radius: 8px;
+    width: 120px;
+    overflow: hidden;
+    box-shadow: 5px 5px 0px rgba(0,0,0,0.5);
+}
+
+.context-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid #eee;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.1s;
+}
+.context-btn:last-child { border-bottom: none; }
+.context-btn:hover { background: #dcdcdc; }
+
+#splitModal {
+    display: none;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2000;
+    background: #fff;
+    border: 3px solid #000;
+    border-radius: 8px;
+    padding: 15px;
+    width: 200px;
+    box-shadow: 10px 10px 0px rgba(0,0,0,0.5);
+    text-align: center;
+}
+.split-title { font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
+#splitInput {
+    width: 100%; box-sizing: border-box; padding: 8px;
+    border: 2px solid #000; border-radius: 4px;
+    font-weight: bold; text-align: center; margin-bottom: 15px;
+    outline: none; font-size: 16px;
+}
+.split-actions { display: flex; gap: 10px; justify-content: center; }
+.split-btn {
+    padding: 8px 15px; border: 2px solid #000; background: #dcdcdc;
+    font-weight: bold; cursor: pointer; border-radius: 4px;
+    font-size: 12px; transition: background 0.2s;
+}
+.split-btn:hover { background: #bbb; }
+
+</style>
+</head>
+<body>
+
+<div id="contextMenu"></div>
+
+<div id="splitModal">
+    <div class="split-title">Split Amount</div>
+    <input type="number" id="splitInput" min="1" placeholder="1">
+    <div class="split-actions">
+        <button class="split-btn" id="confirmSplit">Confirm</button>
+        <button class="split-btn" id="cancelSplit">Cancel</button>
+    </div>
+</div>
+
+<div class="inventory-wrapper">
+
+    <div id="externalPanel" class="panel" style="display:none;">
+        <div id="externalWeight" class="weight-label">⚖ 0.0 / 0 KG</div>
+        <div id="externalName" class="header-label">Ground</div>
+        
+        <div id="externalGrid"></div>
+    </div>
+
+
+    <div class="panel">
+        <div class="weight-label">⚖ Weight 0.0 / 30 KG</div>
+        <div class="grid-5" id="leftGrid"></div>
+    </div>
+
+
+    <div class="panel">
+        <div id="bagWeight" class="weight-label" style="display:none;">⚖ Weight 0.0 / 50 KG</div>
+
+        <div class="right-layout">
+            <div class="equipment">
+                 <div class="slot"><img src="glasses.png"></div>
+                 <div class="slot"><img src="jewel.png"></div>
+                 <div class="slot"><img src="jewel.png"></div>
+                 <div class="slot"><img src="bag.png"></div>
+                 <div class="slot"><img src="radio.png"></div>
+            </div>
+
+            <div id="bagArea">
+                <div id="noBagMessage" class="no-bag">Wear a bag</div>
+                <div id="bagSlots" class="bag-grid" style="display:none;">
+                    <script>
+                        for(let i=0;i<15;i++){
+                            document.write('<div class="slot empty"><div class="plus">+</div></div>');
+                        }
+                    </script>
+                </div>
+            </div>
+
+            <div class="equipment">
+                  <div class="slot"><img src="mask.png"></div>
+                  <div class="slot"><img src="hat.png"></div>
+                  <div class="slot"><img src="shirt.png"></div>
+                  <div class="slot"><img src="pants.png"></div>
+                  <div class="slot"><img src="shoes.png"></div>
+            </div>
+        </div>
+
+        <div class="weapons">
+            <div class="weapon-slot"><img src="pistol.png"></div>
+            <div class="weapon-slot"><img src="pistol.png"></div>
+            <div class="weapon-slot"><img src="rifle.png"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+/* --- SETUP POCKETS --- */
+const leftGrid = document.getElementById('leftGrid');
+for(let i=0; i<30; i++){
+    const slot = document.createElement('div');
+    if (i === 0) {
+        slot.className = "slot item";
+        slot.dataset.type = "usable";
+        slot.innerText = "TEST WATER";
+    } else if (i === 1) {
+        slot.className = "slot item";
+        slot.dataset.type = "non-usable";
+        slot.innerText = "TEST ROCK";
+    } else {
+        slot.className = "slot empty";
+        slot.innerHTML = '<div class="plus">+</div>';
+    }
+    leftGrid.appendChild(slot);
+}
+
+
+/* --- EXTERNAL INVENTORY LOGIC --- */
+const externalPanel = document.getElementById("externalPanel");
+const externalGrid = document.getElementById("externalGrid");
+const externalWeight = document.getElementById("externalWeight");
+const externalName = document.getElementById("externalName");
+
+function openExternal(type) {
+    externalPanel.style.display = "block";
+    externalGrid.innerHTML = ""; // Clear old slots
+    
+    let slots = 0;
+    let weight = 0;
+    let name = "Inventory";
+    let gridClass = "grid-5";
+
+    if (type === 'bag') {
+        name = "Ground Bag";
+        slots = 15; // 3 rows * 5 cols
+        weight = 50;
+        gridClass = "grid-5";
+    } 
+    else if (type === 'crate') {
+        name = "Crate";
+        slots = 32; // 4 rows * 8 cols
+        weight = 100;
+        gridClass = "grid-8";
+    } 
+    else if (type === 'vehicle') {
+        name = "Vehicle";
+        slots = 32; // 4 rows * 8 cols
+        weight = 100;
+        gridClass = "grid-8";
+    }
+
+    // Update UI
+    externalName.innerText = name;
+    externalWeight.innerText = `⚖ 0.0 / ${weight} KG`;
+    externalGrid.className = gridClass;
+
+    // Generate Slots
+    for(let i=0; i<slots; i++){
+        const slot = document.createElement('div');
+        slot.className = "slot empty";
+        slot.innerHTML = '<div class="plus">+</div>';
+        externalGrid.appendChild(slot);
+    }
+}
+
+function closeExternal() {
+    externalPanel.style.display = "none";
+}
+
+// --- Test Functions (Use in Console) ---
+function toggleGroundBag() { openExternal('bag'); }
+function toggleGroundCrate() { openExternal('crate'); }
+function toggleVehicleInv() { openExternal('vehicle'); }
+
+
+/* --- CONTEXT MENU & SPLIT --- */
+const contextMenu = document.getElementById("contextMenu");
+const splitModal = document.getElementById("splitModal");
+const splitInput = document.getElementById("splitInput");
+let currentSplitItem = null;
+
+document.addEventListener("click", (e) => {
+    if (!contextMenu.contains(e.target)) contextMenu.style.display = "none";
+});
+
+document.addEventListener("contextmenu", (e) => {
+    const targetSlot = e.target.closest(".slot");
+    if (targetSlot && targetSlot.dataset.type) {
+        e.preventDefault();
+        const type = targetSlot.dataset.type;
+        currentSplitItem = targetSlot.innerText;
+        showMenu(e.pageX, e.pageY, type);
+    } else {
+        contextMenu.style.display = "none";
+    }
+});
+
+function showMenu(x, y, type) {
+    contextMenu.innerHTML = "";
+    contextMenu.style.display = "block";
+    contextMenu.style.left = `${x}px`;
+    contextMenu.style.top = `${y}px`;
+
+    let options = (type === "usable") ? ["Use", "Give", "Split", "Drop"] : ["Give", "Split", "Drop"];
+
+    options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "context-btn";
+        btn.innerText = opt;
+        btn.onclick = () => {
+            if (opt === "Split") openSplitModal();
+            else console.log(`Action: ${opt} on ${currentSplitItem}`);
+            contextMenu.style.display = "none";
+        };
+        contextMenu.appendChild(btn);
+    });
+}
+
+function openSplitModal() {
+    splitModal.style.display = "block";
+    splitInput.value = "";
+    splitInput.focus();
+}
+
+document.getElementById("confirmSplit").onclick = () => {
+    splitModal.style.display = "none";
+};
+document.getElementById("cancelSplit").onclick = () => {
+    splitModal.style.display = "none";
+};
+
+/* --- BAG LOGIC --- */
+function toggleBag(hasBag){
+    document.getElementById("bagWeight").style.display = hasBag ? "block" : "none";
+    document.getElementById("bagSlots").style.display = hasBag ? "grid" : "none";
+    document.getElementById("noBagMessage").style.display = hasBag ? "none" : "flex";
+}
+toggleBag(false);
+
+</script>
+
+</body>
+</html>
